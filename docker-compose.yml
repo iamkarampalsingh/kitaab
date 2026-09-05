@@ -1,0 +1,52 @@
+# Coolify: New Resource → Docker Compose → this file.
+# Assign domain itrip.ipds.cloud to the `app` service (port 3000).
+# Coolify fills SERVICE_* passwords and FQDNs automatically.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      SERVICE_FQDN_APP_3000: itrip.ipds.cloud
+      BETTER_AUTH_URL: https://itrip.ipds.cloud
+      BETTER_AUTH_SECRET: ${SERVICE_PASSWORD_64_AUTH}
+      DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/kitaab
+      VITE_AUTH_ENABLED: "true"
+      VITE_SOCIAL_LOGIN: "false"
+      HOST: 0.0.0.0
+      PORT: "3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      POSTGRES_DB: kitaab
+    volumes:
+      - kitaab-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d kitaab"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+volumes:
+  kitaab-pg:
